@@ -9,7 +9,7 @@
 struct Heroi *cria_heroi(int ID)
 { 
     struct Heroi *Heroi = malloc(sizeof(struct Heroi));
-// !!!!!!!!!!!!!! O *Heroi pode ter o mesmo nome da struct (H maiúsculo)?
+
     if(Heroi == NULL)
         return NULL;
     
@@ -19,7 +19,6 @@ struct Heroi *cria_heroi(int ID)
     Heroi->Experiencia = 0;
     Heroi->Base_Atual = 0; //o que colocar aqui?
     Heroi->Vida = 1;
-
     int num_habilidades = (rand()%(3 - 1 + 1)) + 1;
     Heroi->Habilidades = cjto_aleat(num_habilidades, 10);
     
@@ -34,10 +33,15 @@ struct Base *cria_base(int ID)
     
     Base->ID = ID;
     Base->Lotacao = (rand()%(8 - 3 + 1)) + 3;
-    Base->Local = cjto_aleat(2, N_TAMANHO_MUNDO); //um conjunto de 2 nums onde o primeiro é o x e o segundo y
-    struct fprio_t *fila_espera = fprio_cria(); 
+    struct fila_t *fila_espera = fila_cria(); 
     Base->Espera = fila_espera;
     Base->Presentes = cjto_cria(Base->Lotacao);
+
+    // criar um conjunto de 2 números aleatórios entre 0 e tamanho do mundo
+    int coordx = (rand()%(N_TAMANHO_MUNDO - 0 + 1)) + 0;
+    int coordy = (rand()%(N_TAMANHO_MUNDO - 0 + 1)) + 0;
+    Base->Local.x= coordx;
+    Base->Local.y = coordy;
     return Base;
 }
 
@@ -50,13 +54,11 @@ struct Missao *cria_missao(int ID)
     Missao->ID = ID;
 
     // criar um conjunto de 2 números aleatórios entre 0 e tamanho do mundo
-    int x = (rand()%(N_TAMANHO_MUNDO - 0 + 1)) + 0;
-    int y = (rand()%(N_TAMANHO_MUNDO - 0 + 1)) + 0;
-    struct cjto_t *localizacao = cjto_cria(N_TAMANHO_MUNDO);
-    cjto_insere(localizacao, x);
-    cjto_insere(localizacao, y);
-    Missao->Local = localizacao;
-
+    int coordx = (rand()%(N_TAMANHO_MUNDO - 0 + 1)) + 0;
+    int coordy = (rand()%(N_TAMANHO_MUNDO - 0 + 1)) + 0;
+    Missao->Local.x = coordx;
+    Missao->Local.y = coordy;
+    
     // gerar um conjunto de tam aleatorio entre 6 e 10 com habilidades aleatórias
     int num_habilidades = (rand()%(10 - 6 + 1)) + 6;
     Missao->Habilidades = cjto_aleat(num_habilidades, 10);
@@ -77,6 +79,7 @@ struct Mundo *cria_mundo()
     Mundo->Relogio = T_INICIO;
     Mundo->TamanhoMundo = N_TAMANHO_MUNDO;
     Mundo->NHabilidades = N_HABILIDADES;
+    Mundo->LEF = fprio_cria();
     
     // Aqui estamos criando um vetor de ponteiros para struct Herois com NHerois espaços de meória
     // Depois disso, estamos completando esses espaços de memória usando o for
