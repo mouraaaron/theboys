@@ -1,10 +1,16 @@
-#ifndef EVENTOS
-#define EVENTOS
+#ifndef EVENTOS_H
+#define EVENTOS_H
 
-#include "entidades.h"
+#include <stdio.h>
 
+struct Heroi;
+struct Base;
+struct Missao;
+struct Mundo;
+struct Loc;
+struct Evento;
 
-
+void select_sort(double matriz[][2], int N);
 void Chega(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base);
 void Espera(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base);
 void Desiste(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base);
