@@ -10,7 +10,10 @@ struct Mundo;
 struct Loc;
 struct Evento;
 
-void select_sort(double matriz[][2], int N);
+void incrementa_xp(struct Mundo *Mundo, int id_base);
+void remove_heroi(struct Mundo *Mundo, int id_base, int id_heroi);
+int heroi_mais_xp(struct Mundo *Mundo, int id_base);
+void select_sort(double matriz[][3], int N); //usado para ordenar uma matriz em void Missao
 void Chega(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base);
 void Espera(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base);
 void Desiste(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base);
