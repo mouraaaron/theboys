@@ -3,8 +3,9 @@
 #include <stdlib.h>
 #include "entidades.h"
 #include "fprio.h"
+#include "fila.h"
 #include "conjunto.h"
-
+//aqui, crio as entidades
 
 struct Heroi *cria_heroi(int ID)
 { 
@@ -17,7 +18,8 @@ struct Heroi *cria_heroi(int ID)
     Heroi-> Paciencia = (rand() % (100 - 0 + 1)) + 0;
     Heroi->Velocidade = (rand() % (5000 - 500 + 1)) + 50;
     Heroi->Experiencia = 0;
-    Heroi->Base_Atual = 0; //o que colocar aqui?
+    Heroi->Base_Atual->Local.x = 0;
+    Heroi->Base_Atual->Local.y = 0; //o que colocar aqui?
     Heroi->Vida = 1;
     int num_habilidades = (rand()%(3 - 1 + 1)) + 1;
     Heroi->Habilidades = cjto_aleat(num_habilidades, 10);
@@ -36,7 +38,9 @@ struct Base *cria_base(int ID)
     struct fila_t *fila_espera = fila_cria(); 
     Base->Espera = fila_espera;
     Base->Presentes = cjto_cria(Base->Lotacao);
-
+    Base->fila_max = 0;
+    Base->n_missoes = 0;    
+    
     // criar um conjunto de 2 números aleatórios entre 0 e tamanho do mundo
     int coordx = (rand()%(N_TAMANHO_MUNDO - 0 + 1)) + 0;
     int coordy = (rand()%(N_TAMANHO_MUNDO - 0 + 1)) + 0;
@@ -52,7 +56,7 @@ struct Missao *cria_missao(int ID)
         return NULL;
 
     Missao->ID = ID;
-
+    Missao->tentativas = 0;
     // criar um conjunto de 2 números aleatórios entre 0 e tamanho do mundo
     int coordx = (rand()%(N_TAMANHO_MUNDO - 0 + 1)) + 0;
     int coordy = (rand()%(N_TAMANHO_MUNDO - 0 + 1)) + 0;
@@ -79,6 +83,11 @@ struct Mundo *cria_mundo()
     Mundo->Relogio = T_INICIO;
     Mundo->TamanhoMundo = N_TAMANHO_MUNDO;
     Mundo->NHabilidades = N_HABILIDADES;
+    Mundo->ev_tratados = 0;
+    Mundo->mi_cumpridas= 0;
+    Mundo->max_tentativas= 0;
+    Mundo->min_tentativs = 0;
+    Mundo->total_mortes = 0;
     Mundo->LEF = fprio_cria();
     
     // Aqui estamos criando um vetor de ponteiros para struct Herois com NHerois espaços de meória
@@ -122,7 +131,3 @@ struct Mundo *cria_mundo()
     }
     return Mundo;
 }
-
-
-
-
