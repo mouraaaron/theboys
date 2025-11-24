@@ -17,7 +17,8 @@ struct Heroi;
 struct Base;
 struct Missao;
 struct Mundo;
-
+struct Loc;
+struct Evento;
 
 struct Loc
 {
@@ -37,7 +38,7 @@ struct Heroi{
     int Paciencia;
     int Velocidade;
     int Experiencia;
-    int Base_Atual;
+    struct Base *Base_Atual;
     int Vida; //1 ou 0 (se for 1 tá vivo, se for 0 tá morto)
 
 };
@@ -48,12 +49,16 @@ struct Base{
     struct cjto_t *Presentes; //tem q usar conjuntos 
     struct fila_t *Espera; //fila de espera
     struct Loc Local;
+    int fila_max;
+    int n_missoes;
 };
 
 struct Missao{
     int ID;
     struct cjto_t *Habilidades; //tem q usar conjuntos eu acho 
     struct Loc Local;
+    int tentativas;
+    
 };
 
 struct Mundo{
@@ -68,6 +73,11 @@ struct Mundo{
     int TamanhoMundo; //tem q usar conjunto eu acho 
     long Relogio;   
     struct fprio_t *LEF;
+    int total_mortes;
+    int ev_tratados;
+    int mi_cumpridas;
+    int max_tentativas;
+    int min_tentativs;
 
     /* ADENDO: Por que tem que ter dois **? Porque uma struct Heroi **Herois_vivos é um 
     * ponteiro para um vetor de ponteiros, no qual cada espaço é ocupado por uma struct Heroi *
