@@ -59,6 +59,7 @@ struct Missao{
     struct Loc Local;
     int tentativas;
     
+    
 };
 
 struct Mundo{
