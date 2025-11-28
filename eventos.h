@@ -24,6 +24,7 @@ void Morre(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base, int id_m
 void Missao(struct Mundo *Mundo, struct Missao *Missao);
 void Fim(struct Mundo *Mundo);
 void Avisa(struct Mundo *Mundo, struct Base *Base);
-
+void eventos_iniciais(struct Mundo *Mundo);
+void destroi_mundo(struct Mundo *Mundo);
 
 #endif
