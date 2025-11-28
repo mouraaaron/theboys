@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "fila.h"
-
+#include "entidades.h"
 
 
 struct fila_t *fila_cria ()
@@ -67,19 +67,29 @@ int fila_insere (struct fila_t *f, void *item)
     f->fim = novo_nodo;
     f->num += 1;
 
+
     return f->num;
 }
 
-void *fila_retira (struct fila_t *f)
+void *fila_retira(struct fila_t *f)
 {
-    if(!f || f->prim == NULL)
+    if (!f || f->prim == NULL)
         return NULL;
-    
-    struct fila_nodo_t *item_retirado = f->prim;
-    f->prim = f->prim->prox;
-    f->num -=1;
-    return(item_retirado);
 
+    // nodo que será removido
+    struct fila_nodo_t *nodo = f->prim;
+
+    // pega o item (ponteiro para struct Heroi)
+    void *item = nodo->item;
+
+    // atualiza a cabeça da fila
+    f->prim = nodo->prox;
+    f->num--;
+
+    // libera apenas o nodo da fila
+    free(nodo);
+
+    return item;
 }
 
 int fila_tamanho (struct fila_t *f)
@@ -89,20 +99,25 @@ int fila_tamanho (struct fila_t *f)
     return -1;
 }
 
-void fila_imprime (struct fila_t *f)
+void fila_imprime(struct fila_t *f)
 {
-    if(!f)
+    if (!f) {
+        printf("Fila NULL.\n");
         return;
+    }
 
     struct fila_nodo_t *aux = f->prim;
 
-    while(aux != NULL){
-        printf("(%d)", 67);
-    if(aux->prox != NULL)
-      printf(" "); //para a última linha das especificações da função
+    if (!aux) {
+        printf("Fila vazia.\n");
+        return;
+    }
 
-    aux = aux->prox;
-  }
+    while (aux) {
+        printf("%p ", aux->item);
+        aux = aux->prox;
+    }
 
-// NA PRATICA NAO SE USA ESSA FUNCAO -> PROFESSOR GIOVANNI
+    printf("\n");
 }
+
