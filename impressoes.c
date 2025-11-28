@@ -120,11 +120,19 @@ void imprime_missao_concluida(struct Mundo *Mundo, struct Evento *evento, int id
     printf("[");
     for(int i = 0; i < Mundo->NHerois; i++)
     {
-        if(cjto_pertence(Mundo->Bases[id_bmp]->Presentes,Mundo->Herois_vivos[i]->ID) == 1)
+       
+        if(Mundo->Herois_vivos[i] == NULL)
         {
-            cjto_imprime(Mundo->Herois_vivos[i]->Habilidades);
+            continue;
         }
 
+        if(Mundo->Herois_vivos[i]->Vida == 1)
+        {
+            if(cjto_pertence(Mundo->Bases[id_bmp]->Presentes, Mundo->Herois_vivos[i]->ID == 1))
+            {
+                cjto_imprime(Mundo->Herois_vivos[i]->Habilidades);
+            }
+        }
     }
     printf("]");
     printf("\n");
