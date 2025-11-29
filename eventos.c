@@ -8,40 +8,16 @@
 #include "conjunto.h"
 #include "entidades.h"
 #include <math.h>
-#include "impressoes.h"
+#include "cria_mundo.h"
+#include "lef.h"
 
-void fila_esvazia(struct fila_t *f)
-{
-    if (!f) return;
 
-    struct fila_nodo_t *aux = f->prim;
-
-    while (aux != NULL) {
-        struct fila_nodo_t *temp = aux->prox;
-        free(aux);
-        aux = temp;
-    }
-
-    f->prim = NULL;
-    f->fim = NULL;
-
-}
-
-int fila_contem(struct fila_t *f, void *item) {
-    if (!f)
-        return 0; // fila vazia ou inválida, não contém
-
-    struct fila_nodo_t *aux = f->prim;
-    while (aux) {
-        if (aux->item == item)  // compara ponteiros
-            return 1;           // já está na fila
-        aux = aux->prox;
-    }
-    return 0; // não encontrou
-}
 
 void incrementa_xp(struct Mundo *Mundo, int id_base)
 {
+    if(id_base < 0 || id_base>= Mundo->NBases) 
+        return;
+
     for(int id_heroi = 0; id_heroi < Mundo->NHerois; id_heroi ++)
     {
         if(cjto_pertence(Mundo->Bases[id_base]->Presentes, id_heroi))
@@ -51,15 +27,6 @@ void incrementa_xp(struct Mundo *Mundo, int id_base)
         }
     }
 }
-
-void remove_heroi(struct Mundo *Mundo, int id_base, int id_heroi)
-{
-    cjto_retira(Mundo->Bases[id_base]->Presentes, id_heroi);
-    //settar tudo dele null e tirar da base
-    Mundo->Herois_vivos[id_heroi]->Vida = 0;
-    Mundo->Herois_vivos[id_heroi] = NULL;
-}
-
 int heroi_mais_xp(struct Mundo *Mundo, int id_base)
 {
     if(!Mundo || id_base < 0 || id_base >= Mundo->NBases)  
@@ -92,7 +59,6 @@ int heroi_mais_xp(struct Mundo *Mundo, int id_base)
     }
     return maior_xp_id;
 }
-
 void select_sort(double matriz[][3], int N) // usado para ordenar a matriz em void Missao
 {
     int i, j, min;
@@ -116,354 +82,260 @@ void select_sort(double matriz[][3], int N) // usado para ordenar a matriz em vo
         matriz[min][1] = aux_id;
     }
 }
-
-void Chega(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base)
+void Chega(struct Mundo *Mundo, struct Evento *evento)
 {
+    int id_base = evento->ID_Base;
+    int id_heroi = evento->ID_heroi;
     int controle_bases_presentes = 0;
-    // se o heroi já está no conjunto de presentes de outra base = 1
 
+    // se o heroi já está no conjunto de presentes de outra base = 1
     for (int i = 0; i < N_BASES; i++) {
-        if (cjto_pertence(Mundo->Bases[i]->Presentes, Heroi->ID)) {
+        if (cjto_pertence(Mundo->Bases[i]->Presentes, id_heroi)) {
             controle_bases_presentes = 1; 
         }
     }
 
-    if (Heroi->Vida == 0 || controle_bases_presentes == 1)
+    if (Mundo->Herois_vivos[id_heroi]->Paciencia == 0 || controle_bases_presentes == 1)
         return;   
 
-    int espera;
-    Heroi->Base_Atual = Base;
+    int espera = 0;
+    int fila_base = Mundo->Bases[id_base]->Espera->num;
 
-    if (Base->Presentes->num < Base->Lotacao && Base->Espera->num == 0)
-        espera = 1; // espera = true
+    if(fila_base > Mundo->Bases[id_base]->fila_max)
+    {
+        Mundo->Bases[evento->ID_Base]->fila_max = fila_base;
+        // atualiza a fila maxima que essa base já teve
+    }
+
+    if(fila_base == 0 && Mundo->Bases[id_base]->Presentes->num < Mundo->Bases[id_base]->Lotacao)
+        espera = 1; //espera = true
+    else    
+        espera = (Mundo->Herois_vivos[id_heroi]->Paciencia > 10 * fila_base);
+
+
+    if(espera == 1)
+    {
+        int hora = Mundo->Relogio;
+        int presentes_base = Mundo->Bases[id_base]->Lotacao;
+        int capacidade = Mundo->Bases[id_base]->Lotacao;
+        espera_na_lef(Mundo, evento);
+        printf("%6d: CHEGA  HEROI %2d BASE %d (%2d/%2d) ESPERA", hora,id_heroi,id_base,presentes_base,capacidade);
+        printf("\n");
+    }
     else
-        espera = (Heroi->Paciencia > 10 * Base->Espera->num);
-
-
-    // ESSE É UM EVENTO LOCAL USADO PARA IMPRESSÃO
-    // faço isso em todos os eventos desse arquivo
-    struct Evento ev_chega;
-    ev_chega.ID_Base = Base->ID;
-    ev_chega.Tempo = Mundo->Relogio;
-    ev_chega.ID_heroi = Heroi->ID;
-    ev_chega.Tipo = EV_Chega;
-    ev_chega.ID_Missao = -1;
+    {
+        int hora = Mundo->Relogio;
+        int presentes_base = Mundo->Bases[id_base]->Lotacao;
+        int capacidade = Mundo->Bases[id_base]->Lotacao;
+        desiste_na_lef(Mundo, evento);
+        printf("%6d: CHEGA  HEROI %2d BASE %d (%2d/%2d) DESISTE",hora,id_heroi,id_base,presentes_base,capacidade);
+    }
     
-    imprime_chega(Mundo, &ev_chega, espera);
-    if (espera == 1)
-    {
-        
-        struct Evento *evento = malloc(sizeof(struct Evento));
 
-        evento->ID_Base = Base->ID;
-        evento->ID_heroi = Heroi->ID;
-        evento->Tipo = EV_Espera;
-        evento->ID_Missao = -1;
-        evento->Tempo = Mundo->Relogio;
-
-        fprio_insere(Mundo->LEF, evento, evento->Tipo, evento->Tempo);
-        
-        Espera(Mundo, Heroi, Base);
-    }
-    else
-    {
-        struct Evento *evento = malloc(sizeof(struct Evento));
-        evento->ID_Base = Base->ID;
-        evento->ID_heroi = Heroi->ID;
-        evento->Tipo = EV_Desiste;
-        evento->ID_Missao = -1;
-        evento->Tempo = Mundo->Relogio;
-
-        fprio_insere(Mundo->LEF, evento, evento->Tipo, evento->Tempo);
-        // tem q botar a mensagem de saida
-        
-    }
-    Mundo->ev_tratados++;
 }
-
-void Espera(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base)
+void Espera(struct Mundo *Mundo, struct Evento *evento)
 {
-    int controle_bases_presentes = 0;
-    // se o heroi já está no conjunto de presentes de outra base = 1
-
-    for (int i = 0; i < N_BASES; i++) {
-        if (cjto_pertence(Mundo->Bases[i]->Presentes, Heroi->ID)) {
-            controle_bases_presentes = 1; 
-        }
-    }
-
-    if (Heroi->Vida == 0 || controle_bases_presentes == 1)
-        return;   
-
-    // ESSE É UM EVENTO LOCAL USADO PARA IMPRESSÃO
-    struct Evento ev_espera;
-    ev_espera.ID_heroi = Heroi->ID;
-    ev_espera.Tempo = Mundo->Relogio;
-    ev_espera.ID_Base = Base->ID;
-    ev_espera.ID_Missao = -1;
-    ev_espera.Tipo = EV_Espera;
-
-    imprime_espera(Mundo, &ev_espera); 
-
-    if (!fila_contem(Base->Espera, Heroi)) 
-    {
-        fila_insere(Base->Espera, Heroi);
-    }
-    else
-    {
-        printf("Herói %d já está na fila de espera da base %d\n", Heroi->ID, Base->ID);
-    }
-
+    int id_heroi = evento->ID_heroi;
+    int id_base = evento->ID_Base;
+    int hora = Mundo->Relogio;
     
-    struct Evento *evento = malloc(sizeof(struct Evento));
-    evento->ID_Base = Base->ID;
-    evento->ID_heroi = Heroi->ID;
-    evento->Tipo = EV_Avisa;
-    evento->ID_Missao = -1;
-    evento->Tempo = Mundo->Relogio;
-    Mundo->ev_tratados++;
 
+    if(Mundo->Herois_vivos[id_heroi]->Vida == 0)
+        return; //para debug
     
-    if(Base->Espera->num > Base->fila_max)
-        Base->fila_max = Base->Espera->num;
+    fila_insere(Mundo->Bases[id_base]->Espera, id_heroi);
 
-    
-    fprio_insere(Mundo->LEF, evento, evento->Tipo, evento->Tempo);
-    
+    int tamanho_fila = fila_tamanho(Mundo->Bases[id_base]->Espera);
+    if(tamanho_fila > Mundo->Bases[id_base]->fila_max)
+        Mundo->Bases[id_base]->fila_max = tamanho_fila;
+   
+    printf("%6d: ESPERA HEROI %2d BASE %d (%2d)", hora, id_heroi, id_base, tamanho_fila);
+    printf("\n");
+    avisa_na_lef(Mundo, evento);
 }
-
-void Desiste(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base)
+void Desiste(struct Mundo *Mundo, struct Evento *evento)
 {
-    if (Heroi->Vida == 0)
+    int id_heroi = evento->ID_heroi;
+    int id_base = evento->ID_Base;
+    int hora = Mundo->Relogio;
+
+    if(Mundo->Herois_vivos[id_heroi]->Vida == 0)
         return;
-    struct Evento ev_desiste;
-    ev_desiste.ID_Base = Base->ID;
-    ev_desiste.Tempo = Mundo->Relogio;
-    ev_desiste.ID_heroi = Heroi->ID;
-    ev_desiste.ID_Missao = -1;
-    ev_desiste.Tipo = EV_Desiste; 
-    imprime_desiste(&ev_desiste);
-
+    
+    printf("%6d: DESIST HEROI %2d BASE %d\n", hora, id_heroi, id_base);
     int indice_nova_base = -1;
     do
     {
         indice_nova_base = rand() % Mundo->NBases;
-    } while (indice_nova_base == Base->ID);
+    } while (indice_nova_base == Mundo->Bases[id_base]->ID);
 
-    struct Evento *evento = malloc(sizeof(struct Evento));
-    evento->ID_Base = Mundo->Bases[indice_nova_base]->ID;
-    evento->ID_heroi = Heroi->ID;
-    evento->ID_Missao = -1;
-    evento->Tempo = Mundo->Relogio;
-    evento->Tipo = EV_Viaja;
-    Mundo->ev_tratados++;
-
-    fprio_insere(Mundo->LEF, evento, evento->Tipo, evento->Tempo);
+    viaja_na_lef(Mundo, evento, indice_nova_base);
 }
-
-void Avisa(struct Mundo *Mundo, struct Base *Base)
+void Viaja(struct Mundo *Mundo, struct Evento *evento)
 {
-  
-    imprime_avisa(Mundo, Base);
+    int id_heroi = evento->ID_heroi;
+    int destino = evento->destino;
+    int hora = Mundo->Relogio;
 
-    if(Base->Espera->num < 0){
-        printf("debugando , fila tem tamanho <0 vamo esvaziar tudo para resetar");
-        fila_esvazia(Base->Espera);
-    }
-    while (Base->Presentes->num < Base->Lotacao && Base->Espera->num > 0)
-    {
-        struct Heroi *h = fila_retira(Base->Espera);
-        if(h == NULL)
-            break;
-        
-    
-        if(cjto_pertence(Base->Presentes, h->ID) == 1)
-        {
-            printf("Debug AVISA -> fila já tem o heroi que tentamos adicionar");
-            break;
-        }
-
-        cjto_insere(Base->Presentes, h->ID);
-    
-
-        // h se refere ao herói que já estava na fila de espera da base
-        // "Herói" se refere ao herói que chegou agora
-
-        struct Evento evento_local;
-        // evento local para impressao do heroi que entrou na base
-        evento_local.ID_Base = Base->ID;
-        evento_local.ID_heroi = h->ID;
-        evento_local.ID_Missao = -1;
-        evento_local.Tempo = Mundo->Relogio;
-        evento_local.Tipo = EV_Entra;
-        imprime_avisa_admite(&evento_local, h->ID);
-
-
-        struct Evento *evento = malloc(sizeof(struct Evento));
-        if(!evento)
-        {
-            fprintf(stderr, "Erro: malloc falhou debugando AVISA\n");
-            exit(1);
-        }
-
-        evento->ID_Base = Base->ID;
-        evento->ID_heroi = h->ID;
-        evento->Tipo = EV_Entra;
-        evento->ID_Missao = -1;
-        evento->Tempo = Mundo->Relogio;
-        fprio_insere(Mundo->LEF, evento, evento->Tipo, evento->Tempo);
-        // tem q botar a mensagem de saida ainda
-
-        
-    }
-    Mundo->ev_tratados++;
-}
-
-void Entra(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base)
-{
-    if (Heroi->Vida == 0)
+    if(Mundo->Herois_vivos[id_heroi]->Vida == 0)
         return;
-    int TPB; // Tempo Permanencia Base
-    TPB = 15 + (Heroi->Paciencia * ((rand() % 20) + 1));
 
-    struct Evento impressao;
-    impressao.ID_Base = Base->ID;
-    impressao.ID_heroi = Heroi->ID;
-    impressao.Tempo = Mundo->Relogio;
-    impressao.Tipo = EV_Entra;
-    impressao.ID_Missao = -1;
-    imprime_entra(Mundo, &impressao);
-
-    struct Evento *evento = malloc(sizeof(struct Evento));
-    if (!evento)
-    {
-        fprintf(stderr, "Erro: falha em Entra\n");
-        exit(1);
-    }
-
-    evento->ID_heroi = Heroi->ID;
-    evento->ID_Base = Base->ID;
-    evento->Tipo = EV_Sai;
-    evento->Tempo = Mundo->Relogio + TPB;
-    evento->ID_Missao = -1;
-
-    fprio_insere(Mundo->LEF, evento, evento->Tipo, evento->Tempo);
-    Mundo->ev_tratados++;
-    // parâmetros da LEF: a lef, o intem q vai ser inserido, o tipo dele, a prioridade (tempo)
-    //  tem q botar a mensagem de saida ainda
-}
-
-void Sai(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base)
-{
-    int controle;
-    controle = cjto_retira(Base->Presentes, Heroi->ID);
-
-    if (controle == -1)
-        printf("Erro ao retirar o heroi da base");
+    int id_base_origem = evento->ID_Base;
 
 
-    struct Evento impressao;
+    if(id_base_origem== -1 || destino == -1)
+        return;
 
-    impressao.ID_Base = Base->ID;
-    impressao.ID_heroi = Heroi->ID;
-    impressao.Tempo = Mundo->Relogio;
-    impressao.Tipo = EV_Sai;
-    impressao.ID_Missao = -1;
-    imprime_sai(Mundo, &impressao);
+    int x_origem = Mundo->Bases[id_base_origem]->Local.x;
+    int y_origem = Mundo->Bases[id_base_origem]->Local.y;
 
+    int x_destino = Mundo->Bases[destino]->Local.x;
+    int y_destino = Mundo->Bases[destino]->Local.y;
 
-    int indice_nova_base = -1;
-    do
-    {
-        indice_nova_base = rand() % Mundo->NBases;
-    } while (indice_nova_base == Base->ID);
-
-    struct Evento *viaja = malloc(sizeof(struct Evento));
-    viaja->ID_Base = Mundo->Bases[indice_nova_base]->ID;
-    viaja->ID_heroi = Heroi->ID;
-    viaja->ID_Missao = -1;
-    viaja->Tempo = Mundo->Relogio;
-    viaja->Tipo = EV_Viaja;
-
-    struct Evento *avisa = malloc(sizeof(struct Evento));
-    avisa->ID_Base = Mundo->Bases[indice_nova_base]->ID;
-    avisa->ID_heroi = Heroi->ID;
-    avisa->ID_Missao = -1;
-    avisa->Tempo = Mundo->Relogio;
-    avisa->Tipo = EV_Avisa;
-
-    fprio_insere(Mundo->LEF, viaja, viaja->Tipo, viaja->Tempo);
-    fprio_insere(Mundo->LEF, avisa, avisa->Tempo, avisa->Tempo);
-    // tem q botar as mensagens de saida aqui paizao
-    Mundo->ev_tratados++;
-}
-
-void Viaja(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base)
-{
-
-    if (Heroi->Vida == 0)
-    return;   
-
-    struct Base *base_origem = Heroi->Base_Atual;
-    int id_base_origem = base_origem->ID;
-    int x_origem = base_origem->Local.x;
-    int y_origem = base_origem->Local.y;
-
-    int x_destino = Base->Local.x;
-    int y_destino = Base->Local.y;
-
-    double D = sqrt((x_destino - x_origem) * (x_destino - x_origem) + (y_destino - y_origem) * (y_destino - y_origem));
+    int D = sqrt((x_destino - x_origem) * (x_destino - x_origem) + (y_destino - y_origem) * (y_destino - y_origem));
     // acima, tem a distancia entre bases
 
-    int duracao_viagem = D / Heroi->Velocidade;
+    int velo_heroi = Mundo->Herois_vivos[id_heroi]->Velocidade;
+    int duracao_viagem = D / velo_heroi;
 
-    struct Evento ev_viaja;
-    ev_viaja.ID_Missao = -1;
-    ev_viaja.Tipo = EV_Viaja;
-    ev_viaja.ID_heroi = Heroi->ID;
-    ev_viaja.ID_Base = Base->ID;
-    ev_viaja.Tempo = Mundo->Relogio + duracao_viagem;
-    imprime_viaja(Mundo, &ev_viaja, id_base_origem, Base->ID, D);
+    int horario_chegada_nova_base = Mundo->Relogio + duracao_viagem;
 
-    struct Evento *evento = malloc(sizeof(struct Evento));
-    evento->ID_heroi = Heroi->ID;
-    evento->ID_Base = Base->ID; //base de destino
-    evento->Tipo = EV_Chega;
-    evento->Tempo = Mundo->Relogio + duracao_viagem;
-    evento->ID_Missao = -1;
 
-    fprio_insere(Mundo->LEF, evento, evento->Tipo, evento->Tempo);
+    printf("%6d: VIAJA HEROI %2d BASE %d BASE %d DIST %d VEL %d CHEGA %d\n", hora, id_heroi, id_base_origem, evento->ID_Base, D, velo_heroi, horario_chegada_nova_base);
+    chega_na_lef(Mundo, evento, duracao_viagem);
+
+
 }
-
-void Morre(struct Mundo *Mundo, struct Heroi *Heroi, struct Base *Base, int id_missao)
+void Entra(struct Mundo *Mundo, struct Evento *evento)
 {
-    struct Evento ev_morre;
-    ev_morre.ID_heroi = Heroi->ID;
-    ev_morre.ID_Base = Base->ID;
-    ev_morre.Tempo = Mundo->Relogio;
-    ev_morre.ID_Missao = id_missao;
-    ev_morre.Tipo = EV_Morre;
-
-    imprime_morre(&ev_morre);
-
-    Heroi->Vida = 0;
-    cjto_retira(Base->Presentes, Heroi->ID);
     
-   struct Evento *evento = malloc(sizeof(struct Evento));
-    evento->ID_heroi = Heroi->ID;
-    evento->ID_Base = Base->ID;
-    evento->Tipo = EV_Avisa;
-    evento->Tempo = Mundo->Relogio;
-    evento->ID_Missao = -1;
-    fprio_insere(Mundo->LEF, evento, evento->Tipo, evento->Tempo);
+    int id_heroi = evento->ID_heroi;
+    int id_base = evento->ID_Base;
+    int hora = Mundo->Relogio;
+
+    if(Mundo->Herois_vivos[id_heroi]->Vida == 0)
+        return;
+
+    Mundo->Herois_vivos[id_heroi]->Base_Atual = evento->ID_Base;
+    cjto_insere(Mundo->Bases[id_base]->Presentes, evento->ID_heroi);
+
+    int TPB;
+    int heroi_paciencia = Mundo->Herois_vivos[id_heroi]->Paciencia;
+
+    TPB = 15 + (heroi_paciencia * ((rand() % 20) + 1));
+
+    int qtd_presentes = Mundo->Bases[id_base]->Presentes->num;
+    int capacidade = Mundo->Bases[id_base]->Lotacao;
+    int horario_saida = hora + TPB;
+    printf("%6d: ENTRA HEROI %2d BASE %d (%2d/%2d) SAI %d\n", hora, id_heroi, id_base, qtd_presentes, capacidade, horario_saida);
+
+    sai_na_lef(Mundo, evento, TPB);
+
     
-    Avisa(Mundo, Base); 
+}
+void Sai(struct Mundo *Mundo, struct Evento *evento)
+{
+    /*    if(mundo->Herois[evento->heroi]->vivo ==0){
+        mundo->EventosTotais--;
+        return;
+    }*/
+
+    int id_heroi = evento->ID_heroi;
+    int id_base = evento->ID_Base;
+    int hora = Mundo->Relogio;
+
+    if(Mundo->Herois_vivos[id_heroi]->Vida == 0)
+        return;
+
+    cjto_retira(Mundo->Bases[id_base]->Presentes, id_heroi);
+
+    int qtd_presentes = Mundo->Bases[id_base]->Presentes->num;
+    int capacidade = Mundo->Bases[id_base]->Presentes->cap;
+    printf("%6d: SAI HEROI %2d BASE %d (%2d/%2d)\n", hora, id_heroi, id_base, qtd_presentes, capacidade);
+
+    int destino = rand() % N_BASES;
+    // nova base aleatória para esse heroi
+
+    Mundo->Herois_vivos[id_heroi]->Base_Atual = -1;
+    viaja_na_lef(Mundo, evento, destino);
+    avisa_na_lef(Mundo, evento);
+
+}
+void Morre(struct Mundo *Mundo, struct Evento *evento)
+{
+    int id_heroi = evento->ID_heroi;
+    int hora = Mundo->Relogio;
+    int id_missao = evento->ID_Missao;
+
+    struct Heroi *h = Mundo->Herois_vivos[id_heroi];
+    h->Vida = 0;
+
+    int base = -1;
+
+    if(evento->ID_Base >= 0 && evento->ID_Base < Mundo->NBases)
+    {
+        base = evento->ID_Base;
+    }
+    else if(h->Base_Atual >= 0 && h->Base_Atual < Mundo->NBases)
+    {
+        base = h->Base_Atual;
+    }
+
+    if(base != -1)
+        cjto_retira(Mundo->Bases[base]->Presentes, id_heroi);
+
+    h->Base_Atual = -1;
+
     Mundo->total_mortes++;
-    Mundo->ev_tratados++;
+    printf("%6d: MORRE HEROI %2d MISSAO %d\n", hora, id_heroi, id_missao);
+    avisa_na_lef(Mundo, evento);
 }
-
-void Missao(struct Mundo *Mundo, struct Missao *Missao)
+void Avisa(struct Mundo *Mundo, struct Evento *evento)
 {
+    int id_base = evento->ID_Base;
+    int hora = Mundo->Relogio;
+    
+    if(id_base < 0 || id_base >= Mundo->NBases)
+        return;
+
+    struct Base *B = Mundo->Bases[id_base];
+    int presentes_base = cjto_card(B->Presentes);
+    int capacidade = B->Lotacao;
+    
+    printf("%6d: AVISA  PORTEIRO BASE %d (%2d/%2d) FILA ", hora, id_base, presentes_base, capacidade);
+    printf("[ ");
+    fila_imprime(Mundo->Bases[id_base]->Espera);
+    printf("]");
+
+    int tam_fila = fila_tamanho(Mundo->Bases[id_base]->Espera);
+    int cap = Mundo->Bases[id_base]->Lotacao;
+
+    while(presentes_base < cap && tam_fila > 0)
+    {
+        int heroi_retirado;
+        fila_retira(Mundo->Bases[id_base]->Espera, &heroi_retirado);
+
+        printf("%6d: AVISA PORTEIRO BASE %d ADMITE %2d\n", hora, id_base, heroi_retirado);
+
+        struct Evento evento_entra;
+        evento_entra.ID_heroi = heroi_retirado;
+        evento_entra.ID_Base = id_base;
+        evento_entra.ID_Missao = evento->ID_Missao;
+        evento_entra.Tempo = hora;
+
+        entra_na_lef(Mundo, &evento_entra);
+        presentes_base++;
+        tam_fila--;
+        // atualiza as variaveis de controle do while aqui
+    }
+
+}
+void Missao(struct Mundo *Mundo, struct Evento *evento)
+{
+    
+    int hora = Mundo->Relogio;
+    int id_missao = evento->ID_Missao;
+
     // vou usar matrizes - recebi breve auxílio de um veterano
     double matriz[Mundo->NBases][3];
 
@@ -486,12 +358,12 @@ void Missao(struct Mundo *Mundo, struct Missao *Missao)
             }
             
         }
-
-        double D = sqrt((Missao->Local.x - x_base) * (Missao->Local.x - x_base) + (Missao->Local.y - y_base) * (Missao->Local.y - y_base));
+        
+        int D = sqrt((Mundo->Missoes[evento->ID_Missao]->Local.x- x_base) * (Mundo->Missoes[evento->ID_Missao]->Local.x- x_base) + (Mundo->Missoes[evento->ID_Missao]->Local.y- y_base) * (Mundo->Missoes[evento->ID_Missao]->Local.y- y_base));
 
         matriz[i][0] = D;
         matriz[i][1] = Mundo->Bases[i]->ID;
-        matriz[i][2] = cjto_contem(hab_base, Missao->Habilidades);
+        matriz[i][2] = cjto_contem(hab_base, Mundo->Missoes[evento->ID_Missao]->Habilidades);
         cjto_destroi(hab_base);
     } 
 
@@ -502,10 +374,11 @@ void Missao(struct Mundo *Mundo, struct Missao *Missao)
 * para completar a missao e 0 se nao tem
  */ 
 
-    Missao->tentativas++; //aumenta a qtd de tentaticas para imprimir depois
+    Mundo->Missoes[evento->ID_Missao]->tentativas++; //aumenta a qtd de tentaticas para imprimir depois
 
     select_sort(matriz, Mundo->NBases);
     // ordena as linhas pela 1 coluna (distancia entre base e missao)
+
 
     int bmp = -1;
     for(int y = 0; y < Mundo->NBases; y++)
@@ -525,109 +398,172 @@ void Missao(struct Mundo *Mundo, struct Missao *Missao)
         Mundo->mi_cumpridas++;
         
         int base_heroi_morre = (int) matriz[0][1];
-    
+
         int heroi_que_vai_morrer = heroi_mais_xp(Mundo, base_heroi_morre);
 
+        evento->ID_heroi = heroi_que_vai_morrer;
         if(heroi_que_vai_morrer == -1)
         {
-            printf("Nao tem heroi disponivel para morrer aqui. Logo, essa base deve estar vazia !!debug");
+            //nao tem nenhum heroi pra morrer nessa base, logo essa base deve estar vazia
+            //entao a missao é impossível
+            printf("%6d: MISSAO %d IMPOSSIVEL ", hora, id_missao);
+            printf("\n");
+            evento->Tempo = evento->Tempo + (24 * 60); //agendar para o outro dia
+            missao_na_lef(Mundo, evento);
             return;
         }
 
-        Morre(Mundo, Mundo->Herois_vivos[heroi_que_vai_morrer], Mundo->Bases[base_heroi_morre], Missao->ID);
-        remove_heroi(Mundo, base_heroi_morre, heroi_que_vai_morrer);
-        // em remove_heroi já coloca a vida dele em 0, por isso chamo Morre primeiro
+        Morre(Mundo, evento);
+        //  em morre já setta a vida dele pra 0 e tira ele do conjunto de presentes da base
+
+        incrementa_xp(Mundo, base_heroi_morre);
         
-        incrementa_xp(Mundo, Mundo->Bases[base_heroi_morre]->ID);
-
-        // imprime que a missao foi concluioda aqu
-        struct Evento impressao;
-        impressao.ID_Base = base_heroi_morre;
-        impressao.ID_heroi = heroi_que_vai_morrer;
-        impressao.ID_Missao = Missao->ID;
-        impressao.Tempo = Mundo->Relogio;
-        impressao.Tipo = EV_Missao;
-
-
-        if(base_heroi_morre >= 0)
-        {
-            imprime_missao_concluida(Mundo, &impressao, impressao.ID_Base);
-        }
-        
-
-
-        struct Evento *evento = malloc(sizeof(struct Evento));
-        evento->ID_Base = matriz[0][1];
-        evento->ID_heroi = -1;
-        evento->Tipo = EV_Missao;
-        evento->Tempo = Mundo->Relogio;
-        evento->ID_Missao = Missao->ID;
-
         Mundo->Bases[base_heroi_morre]->n_missoes++;
-        fprio_insere(Mundo->LEF, evento, evento->Tipo, evento->Tempo);
-        
-    }
-    if(bmp == -1 && (Mundo->Relogio % 2500 == 1))
-    {
-        
-        struct Evento ev_missao_impo;
-        ev_missao_impo.ID_Missao = Missao->ID;
-        ev_missao_impo.Tempo = Mundo->Relogio;
-        ev_missao_impo.ID_Base = -1;
-        ev_missao_impo.Tipo = EV_Morre;
-        ev_missao_impo.ID_heroi = -1;
-        imprime_missao_impossivel(Mundo, &ev_missao_impo);
-        //tem que fazer isso pois se chamar a função para imprimir a missao impossivel com 
-        // as informações abaixo, o horario vai estar errado.
+        morre_na_lef(Mundo, evento, heroi_que_vai_morrer, base_heroi_morre);
 
-        struct Evento *evento = malloc(sizeof(struct Evento));
-        evento->ID_Base = -1;
-        evento->ID_heroi = -1;
-        evento->Tipo = EV_Missao;
-        evento->Tempo = Mundo->Relogio + (24 * 60);
-        evento->ID_Missao = Missao->ID;
-        
-        Mundo->ev_tratados++;
-        fprio_insere(Mundo->LEF, evento, evento->Tipo, evento->Tempo);
+        int tentativas = Mundo->Missoes[id_missao]->tentativas;
+
+        printf("%6d: MISSAO %d TENT %d HAB REQ: ", hora, id_missao, tentativas);
+        printf("[");
+        cjto_imprime(Mundo->Missoes[id_missao]->Habilidades);
+        printf("]");
+        printf("\n");
+
+        printf("%6d: MISSAO %d CUMPRIDA BASE %d HABS: ", hora, id_missao, base_heroi_morre);
+        printf("[");
+        for(int i = 0; i < Mundo->NHerois; i++)
+        {
+       
+            if(Mundo->Herois_vivos[i] == NULL)
+            {
+                continue;
+            }
+
+            if(Mundo->Herois_vivos[i]->Vida == 1)
+            {
+                if(cjto_pertence(Mundo->Bases[base_heroi_morre]->Presentes, Mundo->Herois_vivos[i]->ID == 1))
+                {
+                    cjto_imprime(Mundo->Herois_vivos[i]->Habilidades);
+                }
+            }
+        }
+        printf("]");
+        printf("\n");
     }
     if(bmp != -1)
     {
-      
         incrementa_xp(Mundo, bmp);
-      
-          // chama função que imprime missao concluída 
-        struct Evento impressao;
-        impressao.ID_Base   = bmp;
-        impressao.ID_heroi  = -1;
-        impressao.ID_Missao = Missao->ID;
-        impressao.Tempo     = Mundo->Relogio;
-        impressao.Tipo      = EV_Missao;
-        imprime_missao_concluida(Mundo, &impressao, bmp);
-
-
-        struct Evento *evento = malloc(sizeof(struct Evento));
-        evento->ID_Base = bmp;
-        evento->ID_heroi = -1;
-        evento->Tipo = EV_Missao;
-        evento->Tempo = Mundo->Relogio;
-        evento->ID_Missao = Missao->ID;
-
         Mundo->mi_cumpridas++;
-        fprio_insere(Mundo->LEF, evento, evento->Tipo, evento->Tempo);
-        Mundo->ev_tratados++;
         Mundo->Bases[bmp]->n_missoes++;
+        int tentativas = Mundo->Missoes[id_missao]->tentativas;
+
+        printf("%6d: MISSAO %d TENT %d HAB REQ: ", hora, id_missao, tentativas);
+        printf("[");
+        cjto_imprime(Mundo->Missoes[id_missao]->Habilidades);
+        printf("]");
+        printf("\n");
+
+        printf("%6d: MISSAO %d CUMPRIDA BASE %d HABS: ", hora, id_missao, bmp);
+        printf("[");
+        for(int i = 0; i < Mundo->NHerois; i++)
+        {
+       
+            if(Mundo->Herois_vivos[i] == NULL)
+            {
+                continue;
+            }
+
+            if(Mundo->Herois_vivos[i]->Vida == 1)
+            {
+                if(cjto_pertence(Mundo->Bases[bmp]->Presentes, Mundo->Herois_vivos[i]->ID))
+                {
+                    cjto_imprime(Mundo->Herois_vivos[i]->Habilidades);
+                }
+            }
+        }
+        printf("]");
+        printf("\n");
+
+    }
+    if(bmp == -1 &&  (Mundo->Relogio % 2500 == 1))
+    {
+        //missao impossivel
+        printf("%6d: MISSAO %d IMPOSSIVEL ", hora, id_missao);
+        printf("\n");
+        evento->Tempo = evento->Tempo + (24 * 60); //agendar para o outro dia
+        missao_na_lef(Mundo, evento);
     }
     
-    Mundo->Missoes[Missao->ID]->tentativas++;
+}
+void fim(struct Mundo *Mundo)
+{
+    int tempo = Mundo->Relogio;
+    printf("%d: FIM\n", tempo);
+
+//============================================
+//  impressao dos herois
+    for(int i = 0; i <Mundo->NHerois; i++){
+        int id_heroi = Mundo->Herois_vivos[i]->ID;
+        int pac_heroi = Mundo->Herois_vivos[i]->Paciencia;
+        int velo_heroi = Mundo->Herois_vivos[i]->Velocidade;
+        int xp_heroi = Mundo->Herois_vivos[i]->Experiencia;
+
+        if(Mundo->Herois_vivos[i]->Vida == 1)
+        {
+            
+            printf("HEROI %2d VIVO  PAC %3d VEL %4d EXP %4d  HABS [", id_heroi, pac_heroi, velo_heroi, xp_heroi);
+            cjto_imprime(Mundo->Herois_vivos[id_heroi]->Habilidades);
+            printf("]\n");
+        }
+        else{
+            printf("HEROI %2d MORTO  PAC %3d VEL %4d EXP %4d  HABS [", id_heroi, pac_heroi, velo_heroi, xp_heroi);
+            cjto_imprime(Mundo->Herois_vivos[id_heroi]->Habilidades);
+            printf("]\n");
+        }
+    }
+//==============================================
+// impressao das bases
+    for(int u = 0; u < Mundo->NBases; u++)
+    {
+        int id_base = Mundo->Bases[u]->ID;
+        int lot_base = Mundo->Bases[id_base]->Lotacao;
+        int maior_fila = Mundo->Bases[id_base]->fila_max;
+        int numero_missoes = Mundo->Bases[id_base]->n_missoes;
+
+        printf("BASE %2d LOT %2d FILA MAX %2d MISSOES %d\n", id_base, lot_base, maior_fila,numero_missoes);
+    }
+
+//==============================================
+// demais impressões
+    int eve_tratados = Mundo->ev_tratados;
+    printf("EVENTOS TRADADOS: %d\n",eve_tratados);
+
+    int missoes_cump = Mundo->mi_cumpridas;
+    float porcentagem = missoes_cump/Mundo->NMissoes;
+    printf("MISSOES CUMPRIDAS: %d/%d (%.1f%%)\n", missoes_cump, Mundo->NMissoes,porcentagem);
+
+    int min = 31000;
+    int max = 0;
+    long acumulador = 0;
+    for(int w = 0; w < Mundo->NMissoes; w++)
+    {
+        int id_missao = Mundo->Missoes[w]->ID;
+        if(min > Mundo->Missoes[id_missao]->tentativas)
+            min = Mundo->Missoes[id_missao]->tentativas;
+
+        if(max < Mundo->Missoes[id_missao]->tentativas)
+            max = Mundo->Missoes[id_missao]->tentativas;
+    
+        acumulador += Mundo->Missoes[id_missao]->tentativas;
+    }
+    float media = 0.0;
+    media = (float)acumulador / Mundo->NMissoes;
+    printf("TENTATIVAS/MISSAO: MIN %d, MAX %d, MEDIA %.1f\n", min, max, media);
+
+    float taxa_mortalidade = Mundo->total_mortes/Mundo->NHerois;
+    printf("TAXA MORTALIDADE: %.1f%%\n", taxa_mortalidade);
 
 }
-
-void Fim(struct Mundo *Mundo)
-{  
-    imprime_fim(Mundo);
-    fprio_destroi(Mundo->LEF);
-}
-
 void eventos_iniciais(struct Mundo *Mundo)
 {
   
@@ -640,6 +576,7 @@ void eventos_iniciais(struct Mundo *Mundo)
     evento->Tipo = EV_Chega;
     evento->ID_heroi = i;
     evento->ID_Missao = -1;
+    
 
     fprio_insere(Mundo->LEF, evento, evento->Tipo, evento->Tempo);
     
@@ -668,39 +605,4 @@ void eventos_iniciais(struct Mundo *Mundo)
   ev_fim->ID_Missao = -1;
 
   fprio_insere(Mundo->LEF, ev_fim, ev_fim->Tipo, ev_fim->Tempo);
-}
-
-void destroi_mundo(struct Mundo *Mundo)
-{
-  if(Mundo == NULL)
-    return;
-
-  //vamos destruir as bases
-  for(int i = 0; i < Mundo->NBases; i++)
-  {
-    fila_destroi(Mundo->Bases[i]->Espera);
-    cjto_destroi(Mundo->Bases[i]->Presentes);
-    free(Mundo->Bases[i]);
-  }
-  free(Mundo->Bases);
-
-  // vamos destruir herois
-  for(int u = 0; u < Mundo->NHerois; u++)
-  {
-    cjto_destroi(Mundo->Herois_vivos[u]->Habilidades);
-    free(Mundo->Herois_vivos[u]);
-  }
-  free(Mundo->Herois_vivos);
-
-  //vamos destruir as missoes
-  for(int w = 0; w < Mundo->NMissoes; w++)
-  {
-    cjto_destroi(Mundo->Missoes[w]->Habilidades);
-    free(Mundo->Missoes[w]);
-  }
-  free(Mundo->Missoes);
-
-
-  fprio_destroi(Mundo->LEF);
-  free(Mundo);
 }
