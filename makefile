@@ -8,11 +8,11 @@ MAIN    = theboys
 ENTREGA = $(MAIN)
 
 # lista de arquivos de cabeçalho (a completar)
-HDR = fila.h fprio.h conjunto.h entidades.h eventos.h lef.h impressoes.h 
+HDR = fila.h fprio.h conjunto.h entidades.h eventos.h lef.h cria_mundo.h
 
 # lista de arquivos-objeto (a completar)
 # não inclua conjunto.o, senão ele será removido com "make clean"
-OBJ = fila.o fprio.o entidades.o eventos.o lef.o impressoes.o 
+OBJ = fila.o fprio.o entidades.o eventos.o lef.o cria_mundo.o
 
 $(MAIN): $(MAIN).o $(OBJ) conjunto.o
 	$(CC) $(CFLAGS) -o $(MAIN) $(MAIN).o $(OBJ) conjunto.o $(LDLIBS)
@@ -29,9 +29,7 @@ fprio.o: fprio.c fprio.h
 entidades.o : entidades.c entidades.h 
 eventos.o: eventos.c eventos.h
 lef.o: lef.c lef.h 
-impressoes.o: impressoes.c impressoes.h
-	$(CC) $(CFLAGS) -c impressoes.c
-
+cria_mundo.o: cria_mundo.c cria_mundo.h
 # executar
 run: $(MAIN)
 	./$(MAIN)
