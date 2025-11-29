@@ -1,7 +1,11 @@
 #ifndef entidades_h
 #define entidades_h
-#include "eventos.h"
+#include "fprio.h"
+#include "fila.h"
+#include "conjunto.h"
 #include <stdio.h>
+
+
 
 #define T_INICIO 0
 #define T_FIM_DO_MUNDO 525600
@@ -38,7 +42,7 @@ struct Heroi{
     int Paciencia;
     int Velocidade;
     int Experiencia;
-    struct Base *Base_Atual;
+    int Base_Atual;
     int Vida; //1 ou 0 (se for 1 tá vivo, se for 0 tá morto)
 
 };
@@ -58,7 +62,7 @@ struct Missao{
     struct cjto_t *Habilidades; //tem q usar conjuntos eu acho 
     struct Loc Local;
     int tentativas;
-    
+
     
 };
 
@@ -107,6 +111,7 @@ struct Evento
     long Tempo;
     enum TipoEvento Tipo;
     int ID_Base;
+    int destino;
 
 };
 
