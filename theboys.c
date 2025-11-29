@@ -6,12 +6,13 @@
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
+
+#include "fprio.h" 
 #include "fila.h"
 #include "conjunto.h"
 #include "entidades.h"
 #include "eventos.h"
-#include "lef.h"
-#include "fprio.h" 
+#include "cria_mundo.h"
 #include "lef.h"
 
 
@@ -28,6 +29,41 @@
 #define N_COMPOSTOS_V (N_HABILIDADES * 3)
 
 // minimize o uso de variáveis globais
+
+void destroi_mundo(struct Mundo *Mundo)
+{
+  if(Mundo == NULL)
+    return;
+
+  //vamos destruir as bases
+  for(int i = 0; i < Mundo->NBases; i++)
+  {
+    fila_destroi(Mundo->Bases[i]->Espera);
+    cjto_destroi(Mundo->Bases[i]->Presentes);
+    free(Mundo->Bases[i]);
+  }
+  free(Mundo->Bases);
+
+  // vamos destruir herois
+  for(int u = 0; u < Mundo->NHerois; u++)
+  {
+    cjto_destroi(Mundo->Herois_vivos[u]->Habilidades);
+    free(Mundo->Herois_vivos[u]);
+  }
+  free(Mundo->Herois_vivos);
+
+  //vamos destruir as missoes
+  for(int w = 0; w < Mundo->NMissoes; w++)
+  {
+    cjto_destroi(Mundo->Missoes[w]->Habilidades);
+    free(Mundo->Missoes[w]);
+  }
+  free(Mundo->Missoes);
+
+
+  fprio_destroi(Mundo->LEF);
+  free(Mundo);
+}
 
 // programa principal
 int main ()
@@ -52,4 +88,7 @@ int main ()
 
   return (0) ;
 }
+
+
+
 
