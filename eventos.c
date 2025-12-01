@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdlib.h>
 #include <time.h>
 #include "eventos.h"
 #include "fila.h"
@@ -15,8 +14,9 @@
 
 void incrementa_xp(struct Mundo *Mundo, int id_base)
 {
-    if(id_base < 0 || id_base>= Mundo->NBases) 
+    if(id_base == -1)
         return;
+    // pra nao dar segfault
 
     for(int id_heroi = 0; id_heroi < Mundo->NHerois; id_heroi ++)
     {
@@ -52,33 +52,6 @@ int heroi_mais_xp(struct Mundo *Mundo, int id_base)
 
     return maior_xp_id;
     // estava tendo um problema: um herói estava morrendo + de uma vez
-}
-void select_sort(double matriz[][3], int N) // usado para ordenar a matriz em void Missao
-{
-    int i, j, min;
-    double aux_dist, aux_id, aux_hab;
-
-    for (i = 0; i < N - 1; i++)
-    {
-        min = i;
-        for (j = i + 1; j < N; j++)
-        {
-            if (matriz[j][0] < matriz[min][0])
-                min = j;
-        }
-        // realiza as trocas
-        aux_dist = matriz[i][0];
-        aux_id = matriz[i][1];
-        aux_hab = matriz[i][2];
-
-        matriz[i][0] = matriz[min][0];
-        matriz[i][1] = matriz[min][1];
-        matriz[i][2] = matriz [min][2];
-
-        matriz[min][0] = aux_dist;
-        matriz[min][1] = aux_id;
-        matriz[min][2] = aux_hab;
-    }
 }
 void Chega(struct Mundo *Mundo, struct Evento *evento)
 {
@@ -330,138 +303,6 @@ void Avisa(struct Mundo *Mundo, struct Evento *evento)
     }
 
 }
-void Missao(struct Mundo *Mundo, struct Evento *evento)
-{
-    int hora = Mundo->Relogio;
-    int id_missao = evento->ID_Missao;
-    struct Missao *m = Mundo->Missoes[id_missao];
-
-    m->tentativas++;
-
-    // IMPRESSÃO DE DIAGNÓSTICO (Para sabermos que a missão existiu)
-    printf("%6d: MISSAO %d TENT %d HAB REQ: [", hora, id_missao, m->tentativas);
-    cjto_imprime(m->Habilidades);
-    printf("]\n");
-
-    int bmp_id = -1;
-    int menor_distancia = 9999999; // Começa com infinito
-
-    // --- BUSCA DA BASE MAIS PRÓXIMA (BMP) ---
-    for (int i = 0; i < Mundo->NBases; i++)
-    {
-        struct Base *b = Mundo->Bases[i];
-        int x_base = b->Local.x;
-        int y_base = b->Local.y;
-
-        // 1. Calcula Distância
-        int dx = m->Local.x - x_base;
-        int dy = m->Local.y - y_base;
-        int dist = (int)sqrt(dx*dx + dy*dy);
-
-        // 2. Verifica Habilidades da Base
-        struct cjto_t *hab_base = cjto_cria(Mundo->NHabilidades);
-        
-        // Coleta habilidades dos heróis presentes
-        if (b->Presentes) {
-             for (int h_id = 0; h_id < Mundo->NHerois; h_id++) {
-                 // Verifica se herói existe, está vivo e está nesta base
-                 if (Mundo->Herois_vivos[h_id] && 
-                     Mundo->Herois_vivos[h_id]->Vida > 0 &&
-                     Mundo->Herois_vivos[h_id]->Base_Atual == i) 
-                 {
-                     struct cjto_t *temp = cjto_uniao(Mundo->Herois_vivos[h_id]->Habilidades, hab_base);
-                     cjto_destroi(hab_base);
-                     hab_base = temp;
-                 }
-             }
-        }
-
-        // 3. Verifica se a base cumpre a missão
-        int capaz = cjto_contem(hab_base, m->Habilidades);
-        
-        // DEBUG PODEROSO: Descomente para ver base por base
-        // printf("DEBUG: Base %d Dist %d TemHabs? %d\n", i, dist, capaz);
-
-        // 4. Lógica de Escolha: Se é capaz E é mais perto que a anterior
-        if (capaz == 1 && dist < menor_distancia) {
-            menor_distancia = dist;
-            bmp_id = i;
-        }
-
-        cjto_destroi(hab_base);
-    } 
-
-    // --- FIM DA BUSCA ---
-    // Agora bmp_id tem o ID da base vencedora, ou -1 se ninguém conseguiu.
-
-    // --- 2. TENTATIVA DE SACRIFÍCIO (Composto V) ---
-    // Se falhou (bmp == -1), é dia de sacrifício e tem composto
-    if(bmp_id == -1 && (hora % 2500 == 0) && Mundo->NCompostosV > 0)
-    {
-        // Procura vítima na base mais próxima (mesmo sem habilidades)
-        // Como não temos mais matriz ordenada, vamos achar a base mais próxima ABSOLUTA
-        int base_perto_id = -1;
-        int dist_min = 999999;
-        
-        for (int k=0; k < Mundo->NBases; k++) {
-            int dx = m->Local.x - Mundo->Bases[k]->Local.x;
-            int dy = m->Local.y - Mundo->Bases[k]->Local.y;
-            int d = (int)sqrt(dx*dx + dy*dy);
-            if (d < dist_min) {
-                dist_min = d;
-                base_perto_id = k;
-            }
-        }
-        
-        // Tenta sacrificar na base mais próxima encontrada
-        int heroi_vitima = heroi_mais_xp(Mundo, base_perto_id);
-
-        if(heroi_vitima != -1) {   
-            Mundo->NCompostosV--;
-            Mundo->mi_cumpridas++;
-
-            evento->ID_Base = base_perto_id;
-            evento->ID_heroi = heroi_vitima;
-
-            Morre(Mundo, evento);
-            incrementa_xp(Mundo, base_perto_id);
-            Mundo->Bases[base_perto_id]->n_missoes++; // Contabiliza
-            
-            morre_na_lef(Mundo, evento, heroi_vitima, base_perto_id);
-
-            printf("%6d: MISSAO %d CUMPRIDA BASE %d HABS: [", hora, id_missao, base_perto_id);
-            // Imprime habilidades (simplificado)
-            cjto_imprime(Mundo->Herois_vivos[heroi_vitima]->Habilidades); 
-            printf("]\n");
-            return;
-        }
-    }
-
-    // --- 3. SUCESSO NORMAL ---
-    if(bmp_id != -1) 
-    {
-        incrementa_xp(Mundo, bmp_id); 
-        Mundo->mi_cumpridas++;
-        Mundo->Bases[bmp_id]->n_missoes++; // Contabiliza
-
-        printf("%6d: MISSAO %d CUMPRIDA BASE %d HABS: [", hora, id_missao, bmp_id);
-        // Imprime habilidades da base vencedora
-        // (Reconstruindo rapidinho só pra printar ou iterando heróis)
-        for(int k = 0; k < Mundo->NHerois; k++) {
-            struct Heroi *h = Mundo->Herois_vivos[k];
-            if(h && h->Vida > 0 && h->Base_Atual == bmp_id) {
-                    cjto_imprime(h->Habilidades);
-            }
-        }
-        printf("]\n");
-        return;
-    }
-
-    // --- 4. FRACASSO ---
-    printf("%6d: MISSAO %d IMPOSSIVEL\n", hora, id_missao);
-    evento->Tempo = hora + (24 * 60); 
-    missao_na_lef(Mundo, evento);
-}
 void fim(struct Mundo *Mundo)
 {
     int tempo = Mundo->Relogio;
@@ -506,7 +347,7 @@ void fim(struct Mundo *Mundo)
     printf("EVENTOS TRADADOS: %d\n",eve_tratados);
 
     int missoes_cump = Mundo->mi_cumpridas;
-    float porcentagem = ((float)missoes_cump/(float)Mundo->NMissoes);
+    float porcentagem = ((float)missoes_cump/(float)Mundo->NMissoes) * 100.0;
 
     printf("MISSOES CUMPRIDAS: %d/%d (%.1f%%)\n", missoes_cump, Mundo->NMissoes,porcentagem);
 
@@ -579,4 +420,144 @@ void eventos_iniciais(struct Mundo *Mundo)
   ev_fim->ID_Missao = -1;
 
   fprio_insere(Mundo->LEF, ev_fim, ev_fim->Tipo, ev_fim->Tempo);
+}
+void Missao(struct Mundo *Mundo, struct Evento *evento)
+{
+    // para cada base, calcular a distancia
+    // para cada base, ver se ela tem as habilidades sufiencetes para fazer a missao 
+    // dentro das bases que tem as habilidades suficientes, encontrar a com menor distancia
+    // se nenhuma tiver as hab suficientes, se pode usar compostoV
+    // se puder usar compostoV, queremos a base mais próxima e que tenha heróis dentro
+
+    int hora = Mundo->Relogio;
+    int id_missao = evento->ID_Missao;
+    Mundo->Missoes[id_missao]->tentativas++;
+    int tent = Mundo->Missoes[id_missao]->tentativas;
+    int x_missao = Mundo->Missoes[id_missao]->Local.x;
+    int y_missao = Mundo->Missoes[id_missao]->Local.y;
+
+    printf("%6d: MISSAO %d TENT %d HAB REQ: [", hora, id_missao, tent);
+    cjto_imprime(Mundo->Missoes[id_missao]->Habilidades);
+    printf("]\n");
+    // esse print aparece independente do caso
+
+    int bmp_id = -1;
+    int menor_distancia = 9999999; 
+
+    for (int i = 0; i < Mundo->NBases; i++)
+    {
+        int id_base = Mundo->Bases[i]->ID;
+        int x_base = Mundo->Bases[id_base]->Local.x;
+        int y_base = Mundo->Bases[id_base]->Local.y;
+
+        int D = (int)sqrt(((x_missao - x_base) * (x_missao - x_base)) + ((y_missao - y_base) * (y_missao - y_base)));
+        // distancia entre a missao e a base
+
+
+        struct cjto_t *hab_base = cjto_cria(Mundo->NHabilidades);
+        // vamos colocar as habilidades da base que estamos analisando nesse conjunto aqui
+
+        for(int k = 0; k < Mundo->NHerois; k++)
+        {
+            int id_heroi = Mundo->Herois_vivos[k]->ID;
+            if(Mundo->Herois_vivos[k] && Mundo->Herois_vivos[id_heroi]->Vida > 0 && Mundo->Herois_vivos[id_heroi]->Base_Atual == id_base)
+            {
+                // o if verifica se o heroi ta vivo e se ele ta na base que estamos analisando
+                struct cjto_t *uniao = cjto_uniao(Mundo->Herois_vivos[id_heroi]->Habilidades, hab_base);
+                cjto_destroi(hab_base);
+                hab_base = uniao;
+            }
+            
+        }
+
+   
+    int capaz = cjto_contem(hab_base, Mundo->Missoes[id_missao]->Habilidades);
+    // vai dar 1 ou 0
+    if (capaz == 1 && D < menor_distancia)
+    {
+        menor_distancia = D;
+        bmp_id = i;
+    }
+
+    cjto_destroi(hab_base);
+    } 
+
+    if(bmp_id == -1 && (hora % 2500 == 0) && Mundo->NCompostosV > 0)
+    {
+  
+        int base_perto_id = -1;
+        int dist_min = 999999;
+        
+        for (int k=0; k < Mundo->NBases; k++) {
+
+            int x_base_caso2 = Mundo->Bases[k]->Local.x;
+            int y_base_case2 = Mundo->Bases[k]->Local.y;
+
+            int d =  (int)sqrt(((x_missao - x_base_caso2) * (x_missao - x_base_caso2)) + ((y_missao - y_base_case2) * (y_missao - y_base_case2)));
+            if (d < dist_min && (Mundo->Bases[k]->Presentes->num != 0)) 
+            {
+                // ele só dá continuidade se há pelo menos um heroi dentro da base.
+                // se continuarmos e nao houver ninguem dentro da base, vamos ter problemas dps
+                dist_min = d;
+                base_perto_id = k;
+
+            }
+        }
+        
+        if(base_perto_id == -1)
+        {
+            //quer dizer que NENHUMA base tem pelo menos um cara para ser usado de sacrifício
+            printf("%6d: MISSAO %d IMPOSSIVEL\n", hora, id_missao);
+            evento->Tempo = hora + (24 * 60); 
+            missao_na_lef(Mundo, evento);
+            return;
+        }
+        
+        //sacrifica o heroi mais experiente
+        int heroi_sacrificio = heroi_mais_xp(Mundo, base_perto_id);
+
+        if(heroi_sacrificio != -1) {   
+            Mundo->NCompostosV--;
+            Mundo->mi_cumpridas++;
+
+            evento->ID_Base = base_perto_id;
+            evento->ID_heroi = heroi_sacrificio;
+
+            Morre(Mundo, evento);
+            incrementa_xp(Mundo, base_perto_id);
+            Mundo->Bases[base_perto_id]->n_missoes++; 
+            
+            morre_na_lef(Mundo, evento, heroi_sacrificio, base_perto_id);
+
+            printf("%6d: MISSAO %d CUMPRIDA BASE %d HABS: [", hora, id_missao, base_perto_id);
+            for(int j = 0; j < Mundo->NHerois; j++)
+            {
+                if(Mundo->Herois_vivos[j]->Vida == 1 && Mundo->Herois_vivos[j]->Base_Atual == base_perto_id)
+                cjto_imprime(Mundo->Herois_vivos[j]->Habilidades);
+            }
+            printf("]\n");
+            return;
+        }
+    }
+
+    if(bmp_id != -1) 
+    {
+        incrementa_xp(Mundo, bmp_id); 
+        Mundo->mi_cumpridas++;
+        Mundo->Bases[bmp_id]->n_missoes++; 
+
+        printf("%6d: MISSAO %d CUMPRIDA BASE %d HABS: [", hora, id_missao, bmp_id);
+        for(int k = 0; k < Mundo->NHerois; k++) {
+            if(Mundo->Herois_vivos[k]->Vida == 1 && Mundo->Herois_vivos[k]->Base_Atual == bmp_id) {
+                    cjto_imprime(Mundo->Herois_vivos[k]->Habilidades);
+            }
+        }
+        printf("]\n");
+        return;
+    }
+
+
+    printf("%6d: MISSAO %d IMPOSSIVEL\n", hora, id_missao);
+    evento->Tempo = hora + (24 * 60); 
+    missao_na_lef(Mundo, evento);
 }
